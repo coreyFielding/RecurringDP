@@ -1,21 +1,23 @@
 import Vue from "vue";
-import VueRouter, { RouteConfig } from "vue-router";
-import Home from "../views/Home.vue";
+import Router, { RouteConfig } from "vue-router";
 
-Vue.use(VueRouter);
+Vue.use(Router);
 
-const routes: RouteConfig[] = [
-  {
-    path: "/",
-    name: "Home",
-    component: Home,
-  },
-];
+function lazyLoad(view: string) {
+  return () => import(`@/views/${view}.tsx`);
+}
 
-const router = new VueRouter({
+const routes: RouteConfig[] = [];
+
+const router = new Router({
   mode: "history",
   base: process.env.BASE_URL,
-  routes,
+  routes: [
+    {
+      path: "/",
+      component: lazyLoad("root"),
+    },
+  ],
 });
 
 export default router;
