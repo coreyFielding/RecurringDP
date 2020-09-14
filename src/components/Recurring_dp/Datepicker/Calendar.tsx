@@ -1,5 +1,4 @@
 import { Component, Provide, Prop, Watch, Vue } from "vue-property-decorator";
-import TimeSelect from "./TimeSelect";
 import styled from "vue-styled-components";
 
 import calendar, {
