@@ -1,0 +1,9 @@
+.todayCell {
+  color: #fff;
+  background: blue;
+}
+
+.passedDayCell {
+  opacity: 0.3;
+  cursor: default;
+}
