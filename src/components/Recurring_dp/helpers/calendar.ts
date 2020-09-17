@@ -41,6 +41,12 @@ export const getNextMonth = (month: number, year: number) => {
   return { nextMonth, nextMonthYear };
 };
 
+export const selectable = (date: moment.Moment) => {
+  if (moment(date).isBefore(moment(), "day")) return false;
+
+  return true;
+};
+
 export default (month: number = thisMonth, year: number = thisYear) => {
   const days = [];
 

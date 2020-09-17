@@ -1,125 +1,54 @@
 import { Component, Provide, Prop, Watch, Vue } from "vue-property-decorator";
-import TimeSelect from "./TimeSelect";
-import styled from "vue-styled-components";
+import CalendarHead from "./CalendarHead";
+import DateCalendar from "./DateCalendar";
+import MonthCalendar from "./MonthCalendar";
 
 import calendar, {
   getNextMonth,
   getPrevMonth,
-  getWeekDays,
   thisMonth,
   thisYear,
-  getMonthDays,
+  selectable,
 } from "../helpers/calendar";
-import "../Datepicker/styles.css";
-
+import validate from "@/utils/validate";
+import "../Datepicker/styles.sass";
 import { months } from "../helpers/recurrence";
 import moment from "moment";
 import { IDate, IItem } from "../types/dateTypes";
+import {
+  StyledContainer,
+  StyledDatepicker,
+  StyledCalendar,
+} from "./calendarStyles";
+
 const uuid = require("uuid/v4");
 
-const styledHeader = styled.div`
-    display: flex
-    align-items: center
-    justify-content: space-between
-    height: 40px
-    width: calc(100% - 10px)
-    margin-top: 3px
-`;
-
-const styledBtn = styled.button`
-  background: none
-  cursor: pointer
-  border: none
-`;
-
-const styledHeaderBtn = styledBtn.extend``;
-
-const styledArrow = styledBtn.extend`
-  height: 15px
-  transform: rotate(90deg)
-  transition: all 150ms
-`;
-
-const styledDatepicker = styled.div`
-  height: 250px
-  min-width: 200px
-  max-width: 250px
-  background: darken(#FFF, 3%)
-  border-radius: 3px
-  overflow: hidden
-  box-shadow: 0px 2px 10px rgba(darken(#333867, 25%), .3)
-  z-index: 1000
-  font-family: Arial
-`;
-
-const styledGrid = styled.div`
-  display: grid;
-`;
-
-const styledCalendarGrid = styledGrid.extend`
-  grid-template: repeat(7, auto) / repeat(7, auto)
-`;
-
-const styledMonthGrid = styledGrid.extend`
-  grid-template: repeat(7, auto) / repeat(4, auto)
-
-`;
-
-const styledCell = styled.div`
-  text-align: center
-  align-self: center
-  user-select: none
-  min-width: 20px
-  max-width: 20px
-  padding: 0.6em 0.3em
-  margin: 0.05rem
-  font-size: 10px
-  cursor: pointer
-`;
-
-const styledLabelCell = styledCell.extend`
-  color: grey
-`;
-
-const styledDateCell = styledCell.extend`
-  color: #000
-  font-size: 10px
-  text-align: center
-  border-radius: 50%
-  outline: none
-  transition: all .150s ease-out
-  animation: fade 1s ease-in both
-  
-  &:hover {
-    color: #FFF
-    background: green
-    cursor: pointer
-  }
-    
-`;
-
-const styledMonthCell = styledCell.extend`
-  border-radius: 3px
-  font-size: 14px
-  min-width: 100%
-  margin: 3px
-`;
-
-const todayCell = {
-  background: "blue",
-};
-
 @Component
-export default class Calendar extends Vue {
-  labels: string[] = getWeekDays();
+export default class CalendarComponent extends Vue {
   date!: IDate;
   dates: IItem[] = [];
   months: any[] = [];
-  years: string[] = [];
-  monthName!: string;
+  monthName: string = "";
+  selected: IItem[] = [];
+  singleConfig: boolean = false;
+  rangeConfig: boolean = true;
 
   created() {
     this.getCalendarDates(this.resolveDate());
+  }
+
+  getCalendarDates(date: any) {
+    const calendarMonth = date.month || moment().format("M");
+    const calendarYear = date.year || moment().format("YYYY");
+
+    this.setMonthName(this.date.month);
+    this.getDatesForMonth(calendarMonth, calendarYear);
+  }
+
+  getDatesForMonth(month: number, year: number) {
+    this.resolveDate(month, year);
+    this.setMonthName(this.date.month);
+    this.dates = calendar(month, year).map(this.renderDate);
   }
 
   resolveDate(month: number = thisMonth, year: number = thisYear): IDate {
@@ -130,40 +59,29 @@ export default class Calendar extends Vue {
     });
   }
 
-  getCalendarDates(date: any) {
-    const calendarMonth = date.month || moment().format("M");
-    const calendarYear = date.year || moment().format("YYYY");
-    this.monthName = moment()
-      .month(calendarMonth - 1)
-      .format("MMMM");
-
-    this.getDatesForMonth(calendarMonth, calendarYear);
-  }
-
-  getDatesForMonth(month: number, year: number) {
-    this.monthName = moment()
-      .month(month - 1)
-      .format("MMMM");
-    this.resolveDate(month, year);
-    this.dates = calendar(month, year).map(this.renderDate);
-    console.log(this.dates);
+  renderDate(date: any): any {
+    return {
+      item: new Date(date.join("-")),
+      id: `${uuid()}${uuid()}`,
+    };
   }
 
   gotoPrevMonth() {
     const { month, year } = this.date;
     const { prevMonth, prevMonthYear } = getPrevMonth(month, year);
 
-    this.getCalendarDates(this.resolveDate(prevMonth, prevMonthYear));
+    this.setMonthName(prevMonth);
+    this.getCalendarDates({ month: prevMonth, year: prevMonthYear });
   }
 
   gotoNextMonth() {
     const { month, year } = this.date;
     const { nextMonth, nextMonthYear } = getNextMonth(month, year);
 
-    this.getCalendarDates(this.resolveDate(nextMonth, nextMonthYear));
+    this.setMonthName(nextMonth);
+    this.getCalendarDates({ month: nextMonth, year: nextMonthYear });
   }
 
-  // Change active month
   setMonth() {
     if (!!this.months?.length) return;
     Object.keys(months).forEach((m) =>
@@ -176,86 +94,113 @@ export default class Calendar extends Vue {
     this.months = [];
   }
 
-  // Change active year
-  setYear() {}
-
-  renderDate(date: any): any {
-    return {
-      item: new Date(date.join("-")),
-      id: `${this.monthName}${uuid()}`,
-    };
+  setMonthName(month: number = parseInt(moment().format("M"))) {
+    this.monthName = moment()
+      .month(month - 1)
+      .format("MMMM");
   }
 
-  isToday(date: any): boolean {
-    return moment(this.date.current).isSame(date.item, "day");
+  checkDate = () => {
+    throw new Error("Date must be provided");
+  };
+
+  rescheduleEnd(date: IItem) {
+    if (selectable(date.item) && this.selected[1]) {
+      this.removeDate(date, date.id);
+      this.appendDate(this.selected, date);
+    }
   }
 
-  isPassedDay(date: any): boolean {
-    return moment(date.item).isBefore(this.date.current) && !this.isToday(date);
+  handleDateRange(date: IItem) {
+    const availableDate = selectable(date.item);
+    const noSetEnd = this.rangeConfig && this.selected.length <= 1;
+
+    if (validate(availableDate, noSetEnd)) this.appendDate(this.selected, date);
+
+    this.rescheduleEnd(date);
   }
 
-  private render(h: any): any {
-    const prevBtn = (
-      <button type="button" onClick={this.gotoPrevMonth} class="arrowLeft">
-        <styledArrow as="img" src="../../../assets/chevron.png" />
-      </button>
-    );
+  handleSingleDate(date: IItem = this.checkDate()) {
+    const { month, year } = this.date;
 
-    const calendarHead = (
-      <div class="date-picker__header date">
-        <span>
-          <styledBtn type="button" onClick={this.setMonth}>
-            {this.monthName}
-          </styledBtn>
-          <styledBtn type="button" onClick={this.setYear}>
-            {this.date.year}
-          </styledBtn>
-        </span>
-      </div>
-    );
-    const nextBtn = (
-      <button type="button" onClick={this.gotoNextMonth} class="arrowRight">
-        <styledArrow as="img" src="../../../assets/chevron.png" />
-      </button>
-    );
+    if (selectable(date.item)) this.appendDate(this.selected, date);
+  }
 
-    const labels = this.labels.map((item) => (
-      <styledLabelCell>{item.toUpperCase()}</styledLabelCell>
-    ));
+  appendDate(dates: IItem[], incoming: IItem) {
+    const toDelete = dates.find((d) => d.id === incoming.id);
+    if (toDelete) return this.removeDate(toDelete, incoming.id);
 
-    const dateEl = this.dates.map((date) => (
-      <styledDateCell
-        type="button"
-        id={date.id}
-        class={{
-          todayCell: this.isToday(date),
-          passedDayCell: this.isPassedDay(date),
-        }}
-      >
-        {date.item.getDate()}
-      </styledDateCell>
-    ));
+    this.selected.push(incoming);
+  }
 
-    const monthEl = this.months.map((month) => (
-      <styledMonthCell
-        type="button"
-        onClick={this.handleMonthChange(month.full)}
-      >
-        {month.short}
-      </styledMonthCell>
-    ));
+  removeDate(toDelete: IItem, id: string) {
+    document.getElementById(id)!.classList.remove("activeClass");
+    this.selected.splice(this.selected.indexOf(toDelete), 1);
+  }
 
+  handleDateReset() {
+    const capacity = this.selected.length;
+    if (!capacity) return null;
+
+    for (let i = capacity - 1; i >= 0; i--) {
+      this.selected.splice(this.selected.indexOf(this.selected[i], 1));
+    }
+
+    this.resolveDate();
+    this.setMonthName();
+  }
+
+  handleRangeConfig() {
+    this.handleDateReset();
+
+    this.singleConfig = this.rangeConfig;
+    this.rangeConfig = !this.rangeConfig;
+  }
+
+  handleSingleConfig() {
+    this.handleDateReset();
+
+    this.rangeConfig = this.singleConfig;
+    this.singleConfig = !this.singleConfig;
+  }
+
+  render() {
     return (
-      <styledDatepicker>
-        <styledHeader class="datepicker__header">
-          {prevBtn} {calendarHead} {nextBtn}
-        </styledHeader>
-        <styledCalendarGrid>
-          {labels}
-          {dateEl}
-        </styledCalendarGrid>
-        <styledMonthGrid>{monthEl}</styledMonthGrid>
-      </styledDatepicker>
+      <StyledDatepicker>
+        <StyledContainer>
+          <StyledCalendar>
+            <CalendarHead
+              gotoPrevMonth={this.gotoPrevMonth}
+              gotoNextMonth={this.gotoNextMonth}
+              setMonth={this.setMonth}
+              monthName={this.monthName}
+              date={this.date}
+            />
+
+            {!!this.months.length ? (
+              <MonthCalendar
+                handleMonthChange={this.handleMonthChange}
+                months={this.months}
+              />
+            ) : (
+              <DateCalendar
+                dates={this.dates}
+                date={this.date}
+                selected={this.selected}
+                handleSelect={
+                  this.singleConfig
+                    ? this.handleSingleDate
+                    : this.handleDateRange
+                }
+                handleRangeConfig={this.handleRangeConfig}
+                rangeSet={this.rangeConfig}
+                handleSingleConfig={this.handleSingleConfig}
+                handleDateReset={this.handleDateReset}
+              />
+            )}
+          </StyledCalendar>
+        </StyledContainer>
+      </StyledDatepicker>
     );
   }
 }
